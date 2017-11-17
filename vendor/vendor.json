@@ -1,0 +1,37 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "bOUCnFlRuGN/E633R/lFuiWVrkk=",
+			"path": "github.com/robfig/cron",
+			"revision": "2315d5715e36303a941d907f038da7f7c44c773b",
+			"revisionTime": "2017-11-01T20:10:47Z"
+		},
+		{
+			"checksumSHA1": "BYvROBsiyAXK4sq6yhDe8RgT4LM=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "89742aefa4b206dcf400792f3bd35b542998eb3b",
+			"revisionTime": "2017-08-22T13:27:46Z"
+		},
+		{
+			"checksumSHA1": "5Yb2z6UO+Arm/TEd+OEtdnwOt1A=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "9f005a07e0d31d45e6656d241bb5c0f2efd4bc94",
+			"revisionTime": "2017-09-21T17:41:56Z"
+		},
+		{
+			"checksumSHA1": "wpWClDus8W+4nf59NoxJY5Omz6M=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "0dd5e194bbf5eb84a39666eb4c98a4d007e4203a",
+			"revisionTime": "2017-11-16T07:26:13Z"
+		},
+		{
+			"checksumSHA1": "tSUO/Ma1BMDU/HU93X52jLkod7M=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "0dd5e194bbf5eb84a39666eb4c98a4d007e4203a",
+			"revisionTime": "2017-11-16T07:26:13Z"
+		}
+	],
+	"rootPath": "github.com/pjgg/DockerCronJob"
+}
