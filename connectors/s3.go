@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -75,16 +76,18 @@ func (self *AwsConnector) Push(destPath, sourcePath string) error {
 		fileType := http.DetectContentType(buffer)
 		path := destPath + filepath.Base(file.Name())
 
-		if filepath.Ext(filepath.Base(file.Name())) == "css" {
+		if filepath.Ext(filepath.Base(file.Name())) == ".css" {
 			fileType = "text/css"
 		}
 
+		expiration := time.Now()
 		params := &s3.PutObjectInput{
 			Bucket:        aws.String(self.Bucket_name),
 			Key:           aws.String(path),
 			Body:          fileBytes,
 			ContentLength: aws.Int64(size),
 			ContentType:   aws.String(fileType),
+			Expires:       &expiration,
 		}
 		resp, err := self.S3Client.PutObject(params)
 		if err != nil {
