@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
@@ -16,7 +18,10 @@ import (
 	"github.com/robfig/cron"
 )
 
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	command := os.Getenv("COMMAND")
 	arg := strings.Fields(os.Getenv("ARG"))
 	cronExpr := os.Getenv("CRON_EXP")
@@ -114,7 +119,9 @@ func (self commandJob) Run() {
 	go io.Copy(writer, stdoutPipe)
 	err = cmd.Wait()
 	if err != nil {
-		raven.CaptureErrorAndWait(errors.New("Acceptance test FAIL. Report: "+self.reportURL), nil)
+		tags := make(map[string]string)
+		tags["Report"] = self.reportURL
+		raven.CaptureErrorAndWait(errors.New("Acceptance test FAIL. Code: "+RandStringRunes(5)), tags)
 	}
 
 	fmt.Printf("End.")
@@ -131,4 +138,12 @@ func isEmpty(params ...string) (empty bool) {
 	}
 
 	return
+}
+
+func RandStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
