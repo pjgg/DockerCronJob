@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	raven "github.com/getsentry/raven-go"
 	"github.com/pjgg/DockerCronJob/connectors"
 	"github.com/robfig/cron"
 )
@@ -23,12 +25,33 @@ func main() {
 		logrus.Fatal("missing required env variables as COMMAND, ARG, CRON_EXP")
 	}
 
+	var ok bool
+	var env string
+	var sentryDns string
+	var version string
+
+	if env, ok = os.LookupEnv("ENV"); !ok {
+		logrus.Fatal("missing required env variables ENV")
+	}
+
+	if sentryDns, ok = os.LookupEnv("SENTRY_DSN"); !ok {
+		logrus.Fatal("missing required env variables SENTRY_DNS")
+	}
+
+	if version, ok = os.LookupEnv("VERSION"); !ok {
+		logrus.Fatal("missing required env variables VERSION")
+	}
+
+	raven.SetEnvironment(env)
+	raven.SetDSN(sentryDns)
+	raven.SetRelease(version)
+
 	logrus.Info("Cron job up!: " + cronExpr)
 
 	var bucketName string
 	var destPath string
 	var sourcePath string
-	var ok bool
+
 	if bucketName, ok = os.LookupEnv("BUCKET_NAME"); !ok {
 		logrus.Fatal("missing required env variables BUCKET_NAME")
 	}
@@ -43,6 +66,10 @@ func main() {
 
 	s3Client := connectors.Instance(bucketName)
 	job := &commandJob{command: command, arg: arg, s3Client: s3Client, destFolder: destPath, sourceFolder: sourcePath}
+
+	if job.reportURL, ok = os.LookupEnv("REPORT_URL"); !ok {
+		logrus.Fatal("missing required env variables REPORT_URL")
+	}
 
 	c := cron.New()
 	c.AddJob(cronExpr, job)
@@ -59,6 +86,7 @@ type commandJob struct {
 	s3Client     connectors.AwsConnectorBehavior
 	destFolder   string
 	sourceFolder string
+	reportURL    string
 }
 
 func (self commandJob) Run() {
@@ -84,9 +112,12 @@ func (self commandJob) Run() {
 	}
 
 	go io.Copy(writer, stdoutPipe)
-	cmd.Wait()
-	fmt.Printf("End.")
+	err = cmd.Wait()
+	if err != nil {
+		raven.CaptureErrorAndWait(errors.New("Acceptance test FAIL. Report: "+self.reportURL), nil)
+	}
 
+	fmt.Printf("End.")
 	self.s3Client.Push(self.destFolder, self.sourceFolder)
 }
 
