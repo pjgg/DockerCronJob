@@ -2,18 +2,20 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
+	"github.com/pjgg/DockerCronJob/acceptanceTest"
 	"github.com/pjgg/DockerCronJob/connectors"
 	"github.com/robfig/cron"
 )
@@ -76,6 +78,10 @@ func main() {
 		logrus.Fatal("missing required env variables REPORT_URL")
 	}
 
+	if job.jsonReportPath, ok = os.LookupEnv("JSON_REPORT_PATH"); !ok {
+		logrus.Fatal("missing required env variables JSON_REPORT_PATH")
+	}
+
 	c := cron.New()
 	c.AddJob(cronExpr, job)
 	go c.Start()
@@ -86,12 +92,13 @@ func main() {
 }
 
 type commandJob struct {
-	command      string
-	arg          []string
-	s3Client     connectors.AwsConnectorBehavior
-	destFolder   string
-	sourceFolder string
-	reportURL    string
+	command        string
+	arg            []string
+	s3Client       connectors.AwsConnectorBehavior
+	destFolder     string
+	sourceFolder   string
+	reportURL      string
+	jsonReportPath string
 }
 
 func (self commandJob) Run() {
@@ -119,9 +126,21 @@ func (self commandJob) Run() {
 	go io.Copy(writer, stdoutPipe)
 	err = cmd.Wait()
 	if err != nil {
+
 		tags := make(map[string]string)
 		tags["Report"] = self.reportURL
-		raven.CaptureErrorAndWait(errors.New("Acceptance test FAIL. Code: "+RandStringRunes(5)), tags)
+
+		reportDto := acceptanceTest.ReportDto{
+			Failed:  countNumberOF(self.jsonReportPath, "\"status\": \"failed\""),
+			Skipped: countNumberOF(self.jsonReportPath, "\"status\": \"skipped\""),
+			Passed:  countNumberOF(self.jsonReportPath, "\"status\": \"passed\""),
+		}
+
+		tags["Skipped"] = strconv.Itoa(reportDto.Skipped)
+		tags["Failed"] = strconv.Itoa(reportDto.Failed)
+		tags["Passed"] = strconv.Itoa(reportDto.Passed)
+
+		raven.CaptureErrorAndWait(acceptanceTest.New("Acceptance test FAIL."), tags)
 	}
 
 	fmt.Printf("End.")
@@ -146,4 +165,24 @@ func RandStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func countNumberOF(path string, match string) (amount int) {
+	hdl, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer hdl.Close()
+	scanner := bufio.NewScanner(hdl)
+	for scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+		line := strings.ToLower(scanner.Text())
+		if strings.Contains(line, match) {
+			amount++
+		}
+	}
+
+	return
 }
